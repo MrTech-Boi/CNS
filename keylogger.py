@@ -1,3 +1,7 @@
+#sudo hping3 -S --flood -p 80 192.168.56.102 -> read help for icmp and udp flooding
+#sudo dpkg -i Nessus-*.deb -> sudo service nessusd start
+
+#keylogger
 from pynput import keyboard
 import datetime
 
