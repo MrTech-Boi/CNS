@@ -1,0 +1,134 @@
+a) Set up IPSec under Linux
+Objective: To understand how IPSec provides confidentiality, integrity, and authentication for network traffic between two hosts or networks (creating a VPN).
+Tool: We'll use StrongSwan, a popular open-source IPSec implementation for Linux.
+Scenario: Create a site-to-site VPN (or host-to-host, effectively) between Linux-A and Linux-B to secure all traffic between them.
+Assumptions for IPs (adjust to your VM IPs):
+Linux-A IP: 192.168.56.101
+Linux-B IP: 192.168.56.102
+Steps (to be performed on both Linux-A and Linux-B, with specific IP adjustments):
+Install StrongSwan:
+sudo apt update
+sudo apt install strongswan strongswan-pki -y # strongswan-pki for certificate tools
+Use code with caution.
+Bash
+Configure /etc/ipsec.conf: This file defines the IPSec connections.
+On Linux-A:
+sudo nano /etc/ipsec.conf
+Use code with caution.
+Bash
+Add the following (replace example IPs with your actual VM IPs):
+# /etc/ipsec.conf - strongSwan IPsec configuration file
+
+config setup
+    # strictcrlpolicy=yes
+    # uniqueids = no
+
+# Add connections here.
+
+# Connection from Linux-A to Linux-B
+conn linuxA-to-linuxB
+    left=%defaultroute          # This machine (Linux-A)
+    leftid=192.168.56.101       # IP of Linux-A
+    leftsubnet=0.0.0.0/0        # Traffic from Linux-A to be secured (all for this example)
+    right=192.168.56.102        # IP of Linux-B
+    rightsubnet=0.0.0.0/0       # Traffic to Linux-B to be secured (all for this example)
+    ike=aes256-sha256-modp2048! # IKE proposal (Phase 1)
+    esp=aes256-sha256!          # ESP proposal (Phase 2)
+    keyingtries=%forever
+    ikelifetime=1h
+    lifetime=8h
+    dpddelay=30s
+    dpdtimeout=120s
+    dpdaction=restart
+    authby=secret               # Using Pre-Shared Key (PSK) for simplicity
+    auto=start                  # Start connection automatically
+    type=tunnel
+Use code with caution.
+On Linux-B:
+sudo nano /etc/ipsec.conf
+Use code with caution.
+Bash
+Add the following (notice left and right are swapped compared to Linux-A):
+# /etc/ipsec.conf - strongSwan IPsec configuration file
+
+config setup
+    # strictcrlpolicy=yes
+    # uniqueids = no
+
+# Add connections here.
+
+# Connection from Linux-B to Linux-A
+conn linuxB-to-linuxA
+    left=%defaultroute          # This machine (Linux-B)
+    leftid=192.168.56.102       # IP of Linux-B
+    leftsubnet=0.0.0.0/0
+    right=192.168.56.101        # IP of Linux-A
+    rightsubnet=0.0.0.0/0
+    ike=aes256-sha256-modp2048!
+    esp=aes256-sha256!
+    keyingtries=%forever
+    ikelifetime=1h
+    lifetime=8h
+    dpddelay=30s
+    dpdtimeout=120s
+    dpdaction=restart
+    authby=secret
+    auto=start
+    type=tunnel
+Use code with caution.
+Explanation of key parameters:
+left, right: Define the two endpoints.
+leftid, rightid: Identifiers for the endpoints (often IPs).
+leftsubnet, rightsubnet: Specifies which traffic to protect. 0.0.0.0/0 means all traffic between these two hosts will be tunneled. For site-to-site, you'd specify private network ranges (e.g., 10.1.1.0/24).
+ike, esp: Define encryption and hashing algorithms for IKE (Phase 1) and ESP (Phase 2).
+authby=secret: Using Pre-Shared Keys (PSKs).
+auto=start: Attempt to establish the connection when StrongSwan starts.
+Configure /etc/ipsec.secrets: This file stores the Pre-Shared Key (PSK).
+On BOTH Linux-A and Linux-B (must be identical):
+sudo nano /etc/ipsec.secrets
+Use code with caution.
+Bash
+Add the following (replace IPs with your actual VM IPs and choose a strong secret):
+# /etc/ipsec.secrets - strongSwan IPsec secrets file
+192.168.56.101 192.168.56.102 : PSK "YourVeryStrongPreSharedKeyHere123!"
+Use code with caution.
+Ensure there's a space before and after the colon (:).
+Make sure file permissions are strict: sudo chmod 600 /etc/ipsec.secrets
+Enable IP Forwarding (if you are tunneling traffic for other networks, not strictly needed for host-to-host securing all traffic between them, but good practice):
+On both VMs:
+sudo nano /etc/sysctl.conf
+Use code with caution.
+Bash
+Uncomment or add:
+net.ipv4.ip_forward=1
+net.ipv4.conf.all.accept_redirects = 0
+net.ipv4.conf.all.send_redirects = 0
+Use code with caution.
+Apply the changes:
+sudo sysctl -p
+Use code with caution.
+Bash
+Restart and Check StrongSwan:
+On both VMs:
+sudo systemctl restart strongswan-starter # or strongswan
+sudo systemctl status strongswan-starter
+sudo ipsec statusall # or swanctl --list-sas
+Use code with caution.
+Bash
+You should see the connection listed and ideally established. Look for ESTABLISHED state and security associations (SAs).
+Test the Connection:
+From Linux-A, ping Linux-B's IP:
+ping 192.168.56.102
+Use code with caution.
+Bash
+From Linux-B, ping Linux-A's IP:
+ping 192.168.56.101
+Use code with caution.
+Bash
+Use Wireshark: On Linux-A (or Linux-B), capture traffic on its network interface.
+Before IPSec is up, pings would be ICMP.
+After IPSec is up and securing traffic between the hosts, you should see ESP (Encapsulating Security Payload) packets instead of plain ICMP when pinging the other host. The original ICMP packets will be encrypted within ESP. You might also see IKE (UDP port 500 and 4500) packets for key exchange.
+Troubleshooting:
+Check logs: sudo journalctl -u strongswan-starter or /var/log/syslog or /var/log/auth.log for charon (the IKE daemon) messages.
+Ensure firewall rules (e.g., ufw, iptables) allow UDP ports 500 (IKE) and 4500 (NAT-T), and protocol 50 (ESP).
+Double-check IPs and the PSK in configuration files.
