@@ -1,0 +1,97 @@
+c) Explore the GPG tool to implement email security
+Objective: To understand how GnuPG (GPG) can be used for encrypting and signing emails, providing confidentiality and authenticity/integrity using public-key cryptography.
+Tool: GnuPG (GPG) - usually pre-installed on Linux.
+Scenario: Simulate sending an encrypted and signed email between two users (can be on the same VM or different VMs).
+Steps (perform similar steps for two "users", UserA and UserB):
+Install GPG (if not already present):
+sudo apt update
+sudo apt install gnupg -y
+Use code with caution.
+Bash
+Generate GPG Key Pairs (for UserA and UserB):
+As UserA (on Client-VM or Linux-A):
+gpg --full-generate-key
+Use code with caution.
+Bash
+Choose key type (RSA and RSA is common, default is usually fine).
+Choose key size (e.g., 2048 or 4096 bits).
+Set expiration (e.g., 1y, or 0 for no expiration - not recommended for real use).
+Enter Real name (e.g., User A).
+Enter Email address (e.g., usera@example.com).
+Enter a Comment (optional).
+Create a strong passphrase! This protects your private key.
+GPG will generate random data; you might need to move your mouse or type to speed this up.
+Repeat the process as UserB (on Client-VM or Linux-B) with different details (e.g., User B, userb@example.com).
+List Keys:
+To see your public keys: gpg --list-keys
+To see your private keys: gpg --list-secret-keys
+Exchange Public Keys:
+UserA needs UserB's public key to encrypt emails for UserB.
+UserB needs UserA's public key to encrypt emails for UserA (and to verify UserA's signature).
+Export Public Key (UserA does this):
+gpg --export --armor -o usera_pub.asc usera@example.com
+Use code with caution.
+Bash
+(--armor creates ASCII armored output, easier to share).
+Export Public Key (UserB does this):
+gpg --export --armor -o userb_pub.asc userb@example.com
+Use code with caution.
+Bash
+Share these .asc files: In a lab, you can just copy them between VMs. In real life, you'd email them, put them on a key server, or exchange them via a trusted channel.
+Import Public Key (UserA imports UserB's key):
+gpg --import userb_pub.asc
+Use code with caution.
+Bash
+Import Public Key (UserB imports UserA's key):
+gpg --import usera_pub.asc
+Use code with caution.
+Bash
+Sign Public Keys (Optional but Good Practice - Web of Trust):
+After importing, you can sign the imported key to indicate you trust it.
+UserA signs UserB's key:
+gpg --edit-key userb@example.com
+# In gpg prompt:
+# gpg> sign
+# gpg> save
+Use code with caution.
+Bash
+UserB signs UserA's key similarly.
+Encrypt and Sign an Email (UserA sends to UserB):
+Create a sample email message in a file (e.g., message.txt):
+Hello User B,
+
+This is a secret message from User A!
+
+Regards,
+User A
+Use code with caution.
+Encrypt AND sign the message:
+gpg --encrypt --sign --armor -r userb@example.com -o encrypted_message.asc message.txt
+Use code with caution.
+Bash
+--encrypt: Encrypt the message.
+--sign: Sign the message with UserA's private key.
+--armor: Output in ASCII format.
+-r userb@example.com: Recipient (UserB). GPG uses UserB's public key for encryption.
+-o encrypted_message.asc: Output file.
+message.txt: Input file.
+You'll be prompted for UserA's passphrase to unlock their private key for signing.
+Send the Encrypted Message:
+In a real scenario, encrypted_message.asc would be the body of the email (or an attachment). For the lab, just copy this file to UserB.
+Decrypt and Verify the Email (UserB receives from UserA):
+As UserB (with encrypted_message.asc):
+gpg --decrypt encrypted_message.asc > decrypted_message.txt
+Use code with caution.
+Bash
+GPG will automatically detect it's encrypted for UserB and signed by UserA.
+You'll be prompted for UserB's passphrase to unlock their private key for decryption.
+Output will show:
+That the message was encrypted.
+Information about the signature (e.g., "Good signature from User A usera@example.com").
+The decrypted content will be in decrypted_message.txt.
+Open decrypted_message.txt to read the original message.
+Experiment:
+Try sending an encrypted-only email (remove --sign).
+Try sending a signed-only email (remove --encrypt, use gpg --clearsign message.txt or gpg --sign --detach message.txt).
+Explore key servers (gpg --send-keys <key_id> --keyserver keys.openpgp.org and gpg --recv-keys <key_id> --keyserver ...).
+Look into email client integration (e.g., Thunderbird with Enigmail/OpenPGP support, KMail, Evolution).
