@@ -1,0 +1,79 @@
+b) Set up Snort and study the logs
+Objective: To understand how an Intrusion Detection System (IDS) like Snort monitors network traffic for malicious activity and suspicious patterns based on predefined rules.
+Tool: Snort
+Scenario: Install Snort on Snort-VM and configure it to monitor traffic from Client-VM (or traffic on its own network interface).
+Steps:
+Install Snort (on Snort-VM, e.g., Kali or Ubuntu):
+Kali: Snort might be pre-installed or easily installable.
+Ubuntu:
+sudo apt update
+sudo apt install snort -y
+Use code with caution.
+Bash
+During installation, you might be asked for the home network range (e.g., 192.168.56.0/24).
+If installing from source, it's more involved (requires DAQ, libpcap, etc.). For this exercise, package manager is fine.
+Configure Snort (/etc/snort/snort.conf):
+Open the configuration file:
+sudo nano /etc/snort/snort.conf
+Use code with caution.
+Bash
+ipvar HOME_NET: Set this to your internal network range.
+ipvar HOME_NET 192.168.56.0/24 # Adjust to your lab network
+Use code with caution.
+ipvar EXTERNAL_NET any: Often set to !$HOME_NET (not home net). For a lab, any might be okay to start.
+Rule Path: Ensure var RULE_PATH points to your rules directory (e.g., /etc/snort/rules).
+Output Configuration: By default, Snort often logs alerts to /var/log/snort/alert in a text format. You can configure other outputs like unified2 (for Barnyard2) or syslog.
+# Example: output alert_fast: /var/log/snort/alert_fast.log
+output alert_full: /var/log/snort/alert
+Use code with caution.
+Rule Includes: Further down, you'll see lines like include $RULE_PATH/local.rules and includes for downloaded rule sets (e.g., community rules, Snort subscriber rules if you have them).
+Create/Update Snort Rules:
+Snort uses rules to detect malicious activity. You can get rules from:
+Snort.org: Community rules (free) or Subscriber rules (paid).
+Emerging Threats (ET) Open Ruleset: Another popular free ruleset.
+For now, let's create a simple custom rule in /etc/snort/rules/local.rules:
+sudo nano /etc/snort/rules/local.rules
+Use code with caution.
+Bash
+Add a test rule to detect ICMP pings (you'll get many alerts, just for testing):
+alert icmp any any -> $HOME_NET any (msg:"ICMP Ping Test"; sid:1000001; rev:1;)
+Use code with caution.
+alert icmp: Action and protocol.
+any any -> $HOME_NET any: Source IP, source port, direction, dest IP, dest port.
+(msg:"..."; sid:...; rev:...;): Rule options. msg is the alert message, sid is a unique rule ID (use >1000000 for local rules), rev is revision.
+Validate Snort Configuration:
+sudo snort -T -c /etc/snort/snort.conf -i <your_monitoring_interface>
+Use code with caution.
+Bash
+Replace <your_monitoring_interface> with the network interface Snort should listen on (e.g., eth0, ens33). Use ip a or ifconfig to find it.
+This tests the configuration for errors.
+Run Snort in IDS Mode:
+sudo snort -A console -q -c /etc/snort/snort.conf -i <your_monitoring_interface>
+# OR to log to file and run in background (more typical):
+# sudo snort -A full -b -D -c /etc/snort/snort.conf -i <your_monitoring_interface> -l /var/log/snort/
+Use code with caution.
+Bash
+-A console: Print alerts to the console (good for initial testing).
+-A full: Use the alert mode specified in snort.conf (e.g., to file).
+-q: Quiet mode (don't display banner and status report).
+-b: Log packets in binary (tcpdump) format (used with -l).
+-D: Run in daemon (background) mode.
+-l /var/log/snort/: Log directory.
+Generate Traffic to Trigger Alerts:
+From your Client-VM (or any other VM on the monitored network), ping a machine in $HOME_NET (e.g., ping Snort-VM's IP).
+Try other activities that might trigger default rules (if you downloaded rule sets):
+Run nmap scans from Client-VM against another VM.
+Try to access a web server with a suspicious URL (e.g., http://<target_ip>/../../etc/passwd - this might be caught by web attack rules).
+Study the Logs:
+If running with -A console, alerts appear directly.
+If logging to file (e.g., /var/log/snort/alert):
+sudo tail -f /var/log/snort/alert
+Use code with caution.
+Bash
+Log Format: The default text alert log includes:
+Timestamp
+Rule SID and message
+Classification and priority
+Protocol
+Source and destination IP/port
+Binary Logs (Unified2): If Snort is configured for unified2 output, you'd need a tool like Barnyard2 to process these logs and store them in a database (e.g., MySQL) for easier analysis with front-ends like Snorby or Sguil. This is more advanced but common in production.
